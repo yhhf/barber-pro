@@ -26,7 +26,7 @@ export default function ServicesPage() {
       .from('services')
       .select('*')
       .eq('shop_id', SHOP_ID)
-      .order('created_at')
+      .order('name_fr')
     if (!error) setServices(data || [])
     setLoading(false)
   }
