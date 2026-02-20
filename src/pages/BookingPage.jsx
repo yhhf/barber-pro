@@ -1,3 +1,4 @@
+import { supabase, sendWhatsApp } from '../lib/supabase'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLanguage } from '../hooks/useLanguage'
@@ -85,6 +86,10 @@ export default function BookingPage() {
         booking_date: selected.date, start_time: selected.time.start,
         end_time: selected.time.end, price: selected.service.price, status: 'confirmed'
       })
+      const msg = lang === 'fr'
+  ? `✅ Réservation confirmée !\n\n💈 ${selected.service.name_fr}\n👤 ${selected.employee.full_name_fr}\n📅 ${selected.date} à ${selected.time.start}\n💰 ${selected.service.price} DZD\n\nMerci et à bientôt ! 💈`
+  : `✅ تم تأكيد حجزك !\n\n💈 ${selected.service.name_ar}\n👤 ${selected.employee.full_name_ar}\n📅 ${selected.date} الساعة ${selected.time.start}\n💰 ${selected.service.price} دج\n\nشكراً لك ! 💈`
+await sendWhatsApp(selected.customerPhone, msg)
       setBookingDone(true)
     } catch {
       setError(lang === 'fr' ? 'Erreur, veuillez réessayer.' : 'خطأ، حاول مرة أخرى.')
