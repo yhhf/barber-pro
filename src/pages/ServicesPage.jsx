@@ -16,22 +16,44 @@ export default function ServicesPage() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(null) // id du service à supprimer
 
   useEffect(() => { loadServices() }, [])
 
   async function loadServices() {
     setLoading(true)
-    const { data } = await supabase.from('services').select('*').eq('shop_id', SHOP_ID).order('created_at')
+    const { data } = await supabase
+      .from('services')
+      .select('*')
+      .eq('shop_id', SHOP_ID)
+      .order('created_at')
     setServices(data || [])
     setLoading(false)
   }
 
   async function saveService() {
-    if (!form.name_fr || !form.name_ar) { setError(lang === 'fr' ? 'Remplissez les deux noms.' : 'املأ الاسمين.'); return }
-    setSaving(true); setError('')
-    if (editingId) { await supabase.from('services').update({ ...form }).eq('id', editingId) }
-    else { await supabase.from('services').insert({ ...form, shop_id: SHOP_ID }) }
-    setSaving(false); setShowForm(false); setEditingId(null); setForm(emptyForm); loadServices()
+    if (!form.name_fr || !form.name_ar) {
+      setError(lang === 'fr' ? 'Remplissez les deux noms.' : 'املأ الاسمين.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    if (editingId) {
+      await supabase.from('services').update({ ...form }).eq('id', editingId)
+    } else {
+      await supabase.from('services').insert({ ...form, shop_id: SHOP_ID })
+    }
+    setSaving(false)
+    setShowForm(false)
+    setEditingId(null)
+    setForm(emptyForm)
+    loadServices()
+  }
+
+  async function deleteService(id) {
+    await supabase.from('services').delete().eq('id', id)
+    setConfirmDelete(null)
+    loadServices()
   }
 
   async function toggleActive(svc) {
@@ -41,7 +63,9 @@ export default function ServicesPage() {
 
   function startEdit(svc) {
     setForm({ name_fr: svc.name_fr, name_ar: svc.name_ar, duration_minutes: svc.duration_minutes, price: svc.price })
-    setEditingId(svc.id); setShowForm(true); setError('')
+    setEditingId(svc.id)
+    setShowForm(true)
+    setError('')
   }
 
   return (
@@ -49,20 +73,57 @@ export default function ServicesPage() {
       <style>{`
         @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         .fadeUp { animation: fadeUp 0.4s ease forwards }
+        .fadeIn { animation: fadeIn 0.2s ease forwards }
         .shimmer-btn { background: linear-gradient(90deg,#667eea,#764ba2,#667eea); background-size:200% auto; animation: shimmer 2s linear infinite }
         .shimmer-text { background: linear-gradient(90deg,#667eea,#a78bfa,#667eea); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: shimmer 3s linear infinite }
         .card-hover { transition: all 0.2s ease }
         .card-hover:hover { transform: translateY(-2px) }
       `}</style>
 
-      <div className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+      {/* Confirm Delete Modal */}
+      {confirmDelete && (
+        <div className="fadeIn fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-sm rounded-3xl p-6 text-center"
+            style={{ background: '#1a1a2e', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <div className="text-5xl mb-3">🗑️</div>
+            <h3 className="text-xl font-black text-white mb-2">
+              {lang === 'fr' ? 'Supprimer ce service ?' : 'حذف هذه الخدمة ؟'}
+            </h3>
+            <p className="text-sm mb-5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              {lang === 'fr' ? 'Cette action est irréversible.' : 'هذا الإجراء لا يمكن التراجع عنه.'}
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(null)}
+                className="flex-1 py-3 rounded-2xl font-black"
+                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>
+                {lang === 'fr' ? 'Annuler' : 'إلغاء'}
+              </button>
+              <button onClick={() => deleteService(confirmDelete)}
+                className="flex-1 py-3 rounded-2xl font-black text-white"
+                style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
+                🗑️ {lang === 'fr' ? 'Supprimer' : 'حذف'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10"
           style={{ background: 'radial-gradient(circle, #667eea, transparent)', transform: 'translate(30%,-30%)' }} />
         <div className="p-5 pt-6 relative flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-black text-white">{lang === 'fr' ? 'Services' : 'الخدمات'}</h1>
-            <p className="text-xs mt-0.5 shimmer-text font-bold">✦ BarberPro — {services.length} {lang === 'fr' ? 'services' : 'خدمات'}</p>
+            <h1 className="text-2xl font-black text-white">
+              {lang === 'fr' ? 'Services' : 'الخدمات'}
+            </h1>
+            <p className="text-xs mt-0.5 shimmer-text font-bold">
+              ✦ BarberPro — {services.length} {lang === 'fr' ? 'services' : 'خدمات'}
+            </p>
           </div>
           <button onClick={toggleLanguage} className="border px-4 py-2 rounded-full text-sm font-bold"
             style={{ borderColor: 'rgba(102,126,234,0.5)', background: 'rgba(102,126,234,0.1)', color: '#a78bfa' }}>
@@ -72,6 +133,8 @@ export default function ServicesPage() {
       </div>
 
       <div className="max-w-lg mx-auto p-4">
+
+        {/* Add button */}
         {!showForm && (
           <button onClick={() => { setShowForm(true); setError('') }}
             className="shimmer-btn w-full py-4 rounded-2xl font-black text-white mt-4 mb-4"
@@ -80,29 +143,41 @@ export default function ServicesPage() {
           </button>
         )}
 
+        {/* Form */}
         {showForm && (
           <div className="fadeUp mt-4 mb-4 rounded-3xl p-5"
             style={{ background: 'rgba(102,126,234,0.08)', border: '1px solid rgba(102,126,234,0.25)' }}>
             <h3 className="font-black text-white text-lg mb-4">
-              {editingId ? (lang === 'fr' ? '✏️ Modifier' : '✏️ تعديل') : (lang === 'fr' ? '➕ Nouveau service' : '➕ خدمة جديدة')}
+              {editingId
+                ? (lang === 'fr' ? '✏️ Modifier le service' : '✏️ تعديل الخدمة')
+                : (lang === 'fr' ? '➕ Nouveau service' : '➕ خدمة جديدة')}
             </h3>
-            {error && <div className="rounded-2xl p-3 mb-3 text-sm font-semibold" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>⚠️ {error}</div>}
+            {error && (
+              <div className="rounded-2xl p-3 mb-3 text-sm font-semibold"
+                style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+                ⚠️ {error}
+              </div>
+            )}
             <div className="space-y-3">
               {[
                 { key: 'name_fr', label: lang === 'fr' ? 'Nom français' : 'الاسم بالفرنسية', placeholder: 'Coupe homme' },
                 { key: 'name_ar', label: lang === 'fr' ? 'Nom arabe' : 'الاسم بالعربية', placeholder: 'قصة رجالي' },
               ].map(f => (
-                <div key={f.key} className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div key={f.key} className="rounded-2xl p-4"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <label className="text-xs font-black block mb-2" style={{ color: '#667eea' }}>{f.label}</label>
                   <input type="text" value={form[f.key]} placeholder={f.placeholder}
                     onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full font-bold text-base focus:outline-none" style={{ background: 'transparent', color: 'white' }} />
+                    className="w-full font-bold text-base focus:outline-none"
+                    style={{ background: 'transparent', color: 'white' }} />
                 </div>
               ))}
 
               {/* Duration */}
               <div>
-                <label className="text-xs font-black block mb-2" style={{ color: '#667eea' }}>⏱ {lang === 'fr' ? 'Durée' : 'المدة'}</label>
+                <label className="text-xs font-black block mb-2" style={{ color: '#667eea' }}>
+                  ⏱ {lang === 'fr' ? 'Durée' : 'المدة'}
+                </label>
                 <div className="grid grid-cols-3 gap-2">
                   {durations.map(d => (
                     <button key={d} onClick={() => setForm(p => ({ ...p, duration_minutes: d }))}
@@ -118,13 +193,17 @@ export default function ServicesPage() {
 
               {/* Price */}
               <div>
-                <label className="text-xs font-black block mb-2" style={{ color: '#667eea' }}>💰 {lang === 'fr' ? 'Prix (DZD)' : 'السعر (دج)'}</label>
-                <div className="flex items-center rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <label className="text-xs font-black block mb-2" style={{ color: '#667eea' }}>
+                  💰 {lang === 'fr' ? 'Prix (DZD)' : 'السعر (دج)'}
+                </label>
+                <div className="flex items-center rounded-2xl overflow-hidden"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <button onClick={() => setForm(p => ({ ...p, price: Math.max(0, p.price - 50) }))}
                     className="px-5 py-4 text-xl font-black" style={{ color: '#667eea' }}>−</button>
                   <input type="number" value={form.price}
                     onChange={e => setForm(p => ({ ...p, price: parseInt(e.target.value) || 0 }))}
-                    className="flex-1 text-center font-black text-xl focus:outline-none" style={{ background: 'transparent', color: 'white' }} />
+                    className="flex-1 text-center font-black text-xl focus:outline-none"
+                    style={{ background: 'transparent', color: 'white' }} />
                   <button onClick={() => setForm(p => ({ ...p, price: p.price + 50 }))}
                     className="px-5 py-4 text-xl font-black" style={{ color: '#667eea' }}>+</button>
                 </div>
@@ -145,18 +224,33 @@ export default function ServicesPage() {
           </div>
         )}
 
+        {/* Services List */}
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin"
               style={{ borderColor: 'rgba(102,126,234,0.3)', borderTopColor: '#667eea' }} />
           </div>
+        ) : services.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-5xl mb-3">✂️</p>
+            <p className="font-bold" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              {lang === 'fr' ? 'Aucun service — ajoutez le premier !' : 'لا توجد خدمات — أضف أول خدمة !'}
+            </p>
+          </div>
         ) : (
           <div className="space-y-3">
             {services.map((svc, i) => (
               <div key={svc.id} className="card-hover fadeUp rounded-2xl overflow-hidden"
-                style={{ animationDelay: `${i * 0.05}s`, background: 'rgba(255,255,255,0.04)', border: `1px solid ${svc.is_active ? 'rgba(102,126,234,0.2)' : 'rgba(255,255,255,0.05)'}`, opacity: svc.is_active ? 1 : 0.5 }}>
-                <div className="h-0.5" style={{ background: svc.is_active ? 'linear-gradient(90deg, #667eea, #764ba2)' : 'rgba(255,255,255,0.1)' }} />
+                style={{
+                  animationDelay: `${i * 0.05}s`,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${svc.is_active ? 'rgba(102,126,234,0.2)' : 'rgba(255,255,255,0.05)'}`,
+                  opacity: svc.is_active ? 1 : 0.6
+                }}>
+                <div className="h-0.5"
+                  style={{ background: svc.is_active ? 'linear-gradient(90deg, #667eea, #764ba2)' : 'rgba(255,255,255,0.1)' }} />
                 <div className="p-4">
+                  {/* Service info */}
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
@@ -165,24 +259,39 @@ export default function ServicesPage() {
                       </div>
                       <div>
                         <p className="font-black text-white">{lang === 'fr' ? svc.name_fr : svc.name_ar}</p>
-                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{lang === 'fr' ? svc.name_ar : svc.name_fr}</p>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                          {lang === 'fr' ? svc.name_ar : svc.name_fr}
+                        </p>
                       </div>
                     </div>
                     <span className="text-xs font-black px-2 py-1 rounded-full"
-                      style={{ background: svc.is_active ? 'rgba(52,211,153,0.15)' : 'rgba(239,68,68,0.1)', color: svc.is_active ? '#34d399' : '#f87171' }}>
-                      {svc.is_active ? (lang === 'fr' ? 'Actif' : 'نشط') : (lang === 'fr' ? 'Inactif' : 'غير نشط')}
+                      style={{
+                        background: svc.is_active ? 'rgba(52,211,153,0.15)' : 'rgba(239,68,68,0.1)',
+                        color: svc.is_active ? '#34d399' : '#f87171'
+                      }}>
+                      {svc.is_active
+                        ? (lang === 'fr' ? 'Actif' : 'نشط')
+                        : (lang === 'fr' ? 'Inactif' : 'غير نشط')}
                     </span>
                   </div>
+
+                  {/* Stats */}
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                      <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>⏱ {lang === 'fr' ? 'Durée' : 'المدة'}</p>
+                      <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        ⏱ {lang === 'fr' ? 'Durée' : 'المدة'}
+                      </p>
                       <p className="font-black text-white">{svc.duration_minutes} {lang === 'fr' ? 'min' : 'دق'}</p>
                     </div>
                     <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                      <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>💰 {lang === 'fr' ? 'Prix' : 'السعر'}</p>
+                      <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        💰 {lang === 'fr' ? 'Prix' : 'السعر'}
+                      </p>
                       <p className="font-black" style={{ color: '#a78bfa' }}>{svc.price} DZD</p>
                     </div>
                   </div>
+
+                  {/* Action buttons — 3 buttons now */}
                   <div className="flex gap-2">
                     <button onClick={() => startEdit(svc)}
                       className="flex-1 py-2.5 rounded-xl text-sm font-black"
@@ -192,9 +301,16 @@ export default function ServicesPage() {
                     <button onClick={() => toggleActive(svc)}
                       className="flex-1 py-2.5 rounded-xl text-sm font-black"
                       style={svc.is_active
-                        ? { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.15)', color: '#f87171' }
+                        ? { background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.15)', color: '#fbbf24' }
                         : { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.15)', color: '#34d399' }}>
-                      {svc.is_active ? (lang === 'fr' ? '⛔ Désactiver' : '⛔ تعطيل') : (lang === 'fr' ? '✅ Activer' : '✅ تفعيل')}
+                      {svc.is_active
+                        ? (lang === 'fr' ? '⏸ Désactiver' : '⏸ تعطيل')
+                        : (lang === 'fr' ? '▶ Activer' : '▶ تفعيل')}
+                    </button>
+                    <button onClick={() => setConfirmDelete(svc.id)}
+                      className="w-12 py-2.5 rounded-xl text-sm font-black flex-shrink-0"
+                      style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
+                      🗑️
                     </button>
                   </div>
                 </div>
