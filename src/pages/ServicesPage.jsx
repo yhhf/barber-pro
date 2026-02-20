@@ -16,18 +16,18 @@ export default function ServicesPage() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState(null) // id du service à supprimer
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // holds service to delete
 
   useEffect(() => { loadServices() }, [])
 
   async function loadServices() {
     setLoading(true)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('services')
       .select('*')
       .eq('shop_id', SHOP_ID)
       .order('created_at')
-    setServices(data || [])
+    if (!error) setServices(data || [])
     setLoading(false)
   }
 
@@ -50,14 +50,14 @@ export default function ServicesPage() {
     loadServices()
   }
 
-  async function deleteService(id) {
-    await supabase.from('services').delete().eq('id', id)
-    setConfirmDelete(null)
+  async function toggleActive(svc) {
+    await supabase.from('services').update({ is_active: !svc.is_active }).eq('id', svc.id)
     loadServices()
   }
 
-  async function toggleActive(svc) {
-    await supabase.from('services').update({ is_active: !svc.is_active }).eq('id', svc.id)
+  async function deleteService(svc) {
+    await supabase.from('services').delete().eq('id', svc.id)
+    setDeleteConfirm(null)
     loadServices()
   }
 
@@ -73,38 +73,47 @@ export default function ServicesPage() {
       <style>{`
         @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
         .fadeUp { animation: fadeUp 0.4s ease forwards }
-        .fadeIn { animation: fadeIn 0.2s ease forwards }
         .shimmer-btn { background: linear-gradient(90deg,#667eea,#764ba2,#667eea); background-size:200% auto; animation: shimmer 2s linear infinite }
         .shimmer-text { background: linear-gradient(90deg,#667eea,#a78bfa,#667eea); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation: shimmer 3s linear infinite }
         .card-hover { transition: all 0.2s ease }
         .card-hover:hover { transform: translateY(-2px) }
+        .modal-enter { animation: slideUp 0.3s ease forwards }
       `}</style>
 
-      {/* Confirm Delete Modal */}
-      {confirmDelete && (
-        <div className="fadeIn fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
-          <div className="w-full max-w-sm rounded-3xl p-6 text-center"
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+          <div className="modal-enter w-full max-w-sm rounded-3xl p-6"
             style={{ background: '#1a1a2e', border: '1px solid rgba(239,68,68,0.3)' }}>
-            <div className="text-5xl mb-3">🗑️</div>
-            <h3 className="text-xl font-black text-white mb-2">
-              {lang === 'fr' ? 'Supprimer ce service ?' : 'حذف هذه الخدمة ؟'}
-            </h3>
-            <p className="text-sm mb-5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              {lang === 'fr' ? 'Cette action est irréversible.' : 'هذا الإجراء لا يمكن التراجع عنه.'}
-            </p>
+            <div className="text-center mb-5">
+              <div className="text-5xl mb-3">🗑️</div>
+              <h3 className="text-xl font-black text-white mb-2">
+                {lang === 'fr' ? 'Supprimer ce service ?' : 'حذف هذه الخدمة ؟'}
+              </h3>
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {lang === 'fr' ? deleteConfirm.name_fr : deleteConfirm.name_ar}
+              </p>
+              <p className="text-xs mt-2" style={{ color: '#f87171' }}>
+                {lang === 'fr'
+                  ? '⚠️ Cette action est irréversible.'
+                  : '⚠️ هذا الإجراء لا يمكن التراجع عنه.'}
+              </p>
+            </div>
             <div className="flex gap-3">
-              <button onClick={() => setConfirmDelete(null)}
-                className="flex-1 py-3 rounded-2xl font-black"
-                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>
-                {lang === 'fr' ? 'Annuler' : 'إلغاء'}
-              </button>
-              <button onClick={() => deleteService(confirmDelete)}
-                className="flex-1 py-3 rounded-2xl font-black text-white"
+              <button
+                onClick={() => deleteService(deleteConfirm)}
+                className="flex-1 py-3 rounded-2xl font-black text-white text-sm"
                 style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
-                🗑️ {lang === 'fr' ? 'Supprimer' : 'حذف'}
+                {lang === 'fr' ? '🗑️ Supprimer' : '🗑️ حذف'}
+              </button>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-3 rounded-2xl font-black text-sm"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+                {lang === 'fr' ? 'Annuler' : 'إلغاء'}
               </button>
             </div>
           </div>
@@ -136,7 +145,7 @@ export default function ServicesPage() {
 
         {/* Add button */}
         {!showForm && (
-          <button onClick={() => { setShowForm(true); setError('') }}
+          <button onClick={() => { setShowForm(true); setError(''); setEditingId(null); setForm(emptyForm) }}
             className="shimmer-btn w-full py-4 rounded-2xl font-black text-white mt-4 mb-4"
             style={{ boxShadow: '0 4px 20px rgba(102,126,234,0.3)' }}>
             + {lang === 'fr' ? 'Ajouter un service' : 'إضافة خدمة'}
@@ -152,16 +161,18 @@ export default function ServicesPage() {
                 ? (lang === 'fr' ? '✏️ Modifier le service' : '✏️ تعديل الخدمة')
                 : (lang === 'fr' ? '➕ Nouveau service' : '➕ خدمة جديدة')}
             </h3>
+
             {error && (
               <div className="rounded-2xl p-3 mb-3 text-sm font-semibold"
                 style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
                 ⚠️ {error}
               </div>
             )}
+
             <div className="space-y-3">
               {[
-                { key: 'name_fr', label: lang === 'fr' ? 'Nom français' : 'الاسم بالفرنسية', placeholder: 'Coupe homme' },
-                { key: 'name_ar', label: lang === 'fr' ? 'Nom arabe' : 'الاسم بالعربية', placeholder: 'قصة رجالي' },
+                { key: 'name_fr', label: lang === 'fr' ? 'Nom en français' : 'الاسم بالفرنسية', placeholder: 'Coupe homme' },
+                { key: 'name_ar', label: lang === 'fr' ? 'Nom en arabe' : 'الاسم بالعربية', placeholder: 'قصة رجالي' },
               ].map(f => (
                 <div key={f.key} className="rounded-2xl p-4"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -224,7 +235,7 @@ export default function ServicesPage() {
           </div>
         )}
 
-        {/* Services List */}
+        {/* Services list */}
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin"
@@ -247,10 +258,12 @@ export default function ServicesPage() {
                   border: `1px solid ${svc.is_active ? 'rgba(102,126,234,0.2)' : 'rgba(255,255,255,0.05)'}`,
                   opacity: svc.is_active ? 1 : 0.6
                 }}>
+                {/* Color bar */}
                 <div className="h-0.5"
                   style={{ background: svc.is_active ? 'linear-gradient(90deg, #667eea, #764ba2)' : 'rgba(255,255,255,0.1)' }} />
+
                 <div className="p-4">
-                  {/* Service info */}
+                  {/* Top row */}
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
@@ -258,13 +271,15 @@ export default function ServicesPage() {
                         {serviceIcons[i % serviceIcons.length]}
                       </div>
                       <div>
-                        <p className="font-black text-white">{lang === 'fr' ? svc.name_fr : svc.name_ar}</p>
+                        <p className="font-black text-white">
+                          {lang === 'fr' ? svc.name_fr : svc.name_ar}
+                        </p>
                         <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
                           {lang === 'fr' ? svc.name_ar : svc.name_fr}
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-black px-2 py-1 rounded-full"
+                    <span className="text-xs font-black px-2 py-1 rounded-full flex-shrink-0"
                       style={{
                         background: svc.is_active ? 'rgba(52,211,153,0.15)' : 'rgba(239,68,68,0.1)',
                         color: svc.is_active ? '#34d399' : '#f87171'
@@ -277,21 +292,27 @@ export default function ServicesPage() {
 
                   {/* Stats */}
                   <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    <div className="rounded-xl p-3 text-center"
+                      style={{ background: 'rgba(255,255,255,0.04)' }}>
                       <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
                         ⏱ {lang === 'fr' ? 'Durée' : 'المدة'}
                       </p>
-                      <p className="font-black text-white">{svc.duration_minutes} {lang === 'fr' ? 'min' : 'دق'}</p>
+                      <p className="font-black text-white">
+                        {svc.duration_minutes} {lang === 'fr' ? 'min' : 'دق'}
+                      </p>
                     </div>
-                    <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    <div className="rounded-xl p-3 text-center"
+                      style={{ background: 'rgba(255,255,255,0.04)' }}>
                       <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
                         💰 {lang === 'fr' ? 'Prix' : 'السعر'}
                       </p>
-                      <p className="font-black" style={{ color: '#a78bfa' }}>{svc.price} DZD</p>
+                      <p className="font-black" style={{ color: '#a78bfa' }}>
+                        {svc.price} DZD
+                      </p>
                     </div>
                   </div>
 
-                  {/* Action buttons — 3 buttons now */}
+                  {/* Action buttons — 3 buttons: Edit, Toggle, Delete */}
                   <div className="flex gap-2">
                     <button onClick={() => startEdit(svc)}
                       className="flex-1 py-2.5 rounded-xl text-sm font-black"
@@ -304,10 +325,10 @@ export default function ServicesPage() {
                         ? { background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.15)', color: '#fbbf24' }
                         : { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.15)', color: '#34d399' }}>
                       {svc.is_active
-                        ? (lang === 'fr' ? '⏸ Désactiver' : '⏸ تعطيل')
+                        ? (lang === 'fr' ? '⏸ Pause' : '⏸ إيقاف')
                         : (lang === 'fr' ? '▶ Activer' : '▶ تفعيل')}
                     </button>
-                    <button onClick={() => setConfirmDelete(svc.id)}
+                    <button onClick={() => setDeleteConfirm(svc)}
                       className="w-12 py-2.5 rounded-xl text-sm font-black flex-shrink-0"
                       style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
                       🗑️
